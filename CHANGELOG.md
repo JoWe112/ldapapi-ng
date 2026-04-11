@@ -32,5 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ldapapi-ng `NetworkPolicy` so gateway mode works out of the box.
 - Dependabot configuration (`.github/dependabot.yml`) for `gomod`, `docker`,
   and `github-actions` ecosystems.
+- GitHub Actions CI workflow (`.github/workflows/ci.yml`) enforcing
+  `gofmt`, `go vet`, `go build`, `go test -race`, `golangci-lint`,
+  `govulncheck`, `helm lint`/`template` (gateway + standalone),
+  KrakenD template JSON validation, a Docker image build, and a
+  containerised Trivy HIGH/CRITICAL scan.
 
 [Unreleased]: https://github.com/JoWe112/ldapapi-ng/compare/v0.1.0...HEAD
