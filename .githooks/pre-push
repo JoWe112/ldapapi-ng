@@ -23,8 +23,16 @@ while read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
             echo ""
             printf "Push directly to '%s'? [y/N] " "$BRANCH"
             # Read from the terminal, not stdin (which git uses for the hook input)
-            exec < /dev/tty
-            read -r REPLY
+            if [ -t 1 ] && [ -e /dev/tty ]; then
+                exec < /dev/tty
+                read -r REPLY
+            else
+                # Non-interactive shell — block by default for safety
+                echo ""
+                echo "Non-interactive shell detected. Blocking push to protected branch."
+                echo "Use --no-verify to bypass if you are certain."
+                exit 1
+            fi
             if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
                 echo "Push cancelled."
                 exit 1
