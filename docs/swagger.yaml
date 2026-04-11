@@ -1,0 +1,127 @@
+basePath: /
+definitions:
+  handler.AuthResponse:
+    properties:
+      authenticated:
+        example: true
+        type: boolean
+      username:
+        example: jdoe
+        type: string
+    type: object
+  handler.ErrorBody:
+    properties:
+      error:
+        $ref: '#/definitions/handler.ErrorDetail'
+    type: object
+  handler.ErrorDetail:
+    properties:
+      code:
+        example: INVALID_CREDENTIALS
+        type: string
+      message:
+        example: The provided credentials are invalid.
+        type: string
+    type: object
+  handler.HealthResponse:
+    properties:
+      commit:
+        example: a1b2c3d
+        type: string
+      status:
+        example: ok
+        type: string
+      version:
+        example: 0.1.0
+        type: string
+    type: object
+  handler.UserResponse:
+    properties:
+      attributes:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      dn:
+        example: uid=jdoe,ou=people,dc=example,dc=org
+        type: string
+      uid:
+        example: jdoe
+        type: string
+    type: object
+info:
+  contact: {}
+  description: REST API that authenticates users and looks up attributes over LDAPS.
+  title: ldapapi-ng
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      description: Returns the service status along with build version and commit.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.HealthResponse'
+      summary: Health check
+      tags:
+      - system
+  /v1/auth:
+    post:
+      description: |-
+        Performs an LDAP bind using the credentials supplied via HTTP Basic Auth.
+        The request body is intentionally empty — credentials are sent in the Authorization header.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorBody'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.ErrorBody'
+      security:
+      - BasicAuth: []
+      summary: Authenticate a user against LDAP
+      tags:
+      - auth
+  /v1/user/{uid}:
+    get:
+      description: Returns the LDAP attributes of the user identified by :uid.
+      parameters:
+      - description: User ID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.UserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorBody'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.ErrorBody'
+      summary: Fetch user attributes
+      tags:
+      - user
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"
