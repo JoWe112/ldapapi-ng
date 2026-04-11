@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.25.9"
+  GOLANGCI_LINT_VERSION: "v1.62.2"
+  TRIVY_VERSION: "0.58.1"
+
+jobs:
+  go:
+    name: Go build, test, lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test (race)
+        run: go test ./... -race -count=1
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=5m
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  krakend:
+    name: KrakenD template sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render and validate krakend.tmpl
+        run: |
+          python3 - <<'PY'
+          import re, json, sys
+          with open('deploy/krakend/krakend.tmpl') as f:
+              t = f.read()
+          t = re.sub(r'\{\{\s*env\s+"KRAKEND_API_KEYS_JSON"\s*\}\}',
+                     '[{"key":"x","roles":["ldapapi-user"]}]', t)
+          t = re.sub(r'\{\{\s*env\s+"[A-Z_]+"\s*\}\}', 'dummy', t)
+          try:
+              json.loads(t)
+          except Exception as e:
+              print(f"krakend.tmpl is not valid JSON after env substitution: {e}",
+                    file=sys.stderr)
+              sys.exit(1)
+          print("OK: krakend.tmpl renders to valid JSON")
+          PY
+
+  helm:
+    name: Helm lint and template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: helm lint (gateway mode, defaults)
+        run: |
+          helm lint ./helm \
+            --set ldap.host=ldap.example.org \
+            --set ldap.baseDN=dc=example,dc=org
+
+      - name: helm template (gateway mode)
+        run: |
+          helm template test ./helm \
+            --set ldap.host=ldap.example.org \
+            --set ldap.baseDN=dc=example,dc=org > /dev/null
+
+      - name: helm template (standalone mode)
+        run: |
+          helm template test ./helm \
+            --set auth.mode=standalone \
+            --set ldap.host=ldap.example.org \
+            --set ldap.baseDN=dc=example,dc=org > /dev/null
+
+  image:
+    name: Docker build + Trivy scan
+    runs-on: ubuntu-latest
+    needs: [go]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ldapapi-ng:ci
+          platforms: linux/amd64
+          build-args: |
+            VERSION=ci
+            COMMIT=${{ github.sha }}
+            DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy scan (container)
+        run: |
+          mkdir -p "$HOME/.cache/trivy"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            aquasec/trivy:${{ env.TRIVY_VERSION }} \
+            image \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --no-progress \
+            ldapapi-ng:ci
