@@ -1,0 +1,190 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "REST API that authenticates users and looks up attributes over LDAPS.",
+        "title": "ldapapi-ng",
+        "contact": {},
+        "version": "0.1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Returns the service status along with build version and commit.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Performs an LDAP bind using the credentials supplied via HTTP Basic Auth.\nThe request body is intentionally empty — credentials are sent in the Authorization header.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Authenticate a user against LDAP",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AuthResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorBody"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/{uid}": {
+            "get": {
+                "description": "Returns the LDAP attributes of the user identified by :uid.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Fetch user attributes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.UserResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorBody"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorBody"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "authenticated": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "username": {
+                    "type": "string",
+                    "example": "jdoe"
+                }
+            }
+        },
+        "handler.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/handler.ErrorDetail"
+                }
+            }
+        },
+        "handler.ErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "INVALID_CREDENTIALS"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "The provided credentials are invalid."
+                }
+            }
+        },
+        "handler.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "example": "a1b2c3d"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "version": {
+                    "type": "string",
+                    "example": "0.1.0"
+                }
+            }
+        },
+        "handler.UserResponse": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "dn": {
+                    "type": "string",
+                    "example": "uid=jdoe,ou=people,dc=example,dc=org"
+                },
+                "uid": {
+                    "type": "string",
+                    "example": "jdoe"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
+        }
+    }
+}
