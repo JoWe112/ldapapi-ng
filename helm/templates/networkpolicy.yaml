@@ -1,0 +1,37 @@
+{{- /*
+In gateway mode the NetworkPolicy is required — it's what makes the
+"API only reachable from the gateway" guarantee enforceable. In
+standalone mode it is optional and only rendered when explicitly
+enabled.
+*/ -}}
+{{- if or (eq .Values.auth.mode "gateway") .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ldapapi-ng.fullname" . }}
+  labels:
+    {{- include "ldapapi-ng.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ldapapi-ng.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- if eq .Values.auth.mode "gateway" }}
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.gatewayNamespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.gatewayPodSelector | nindent 12 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    {{- else }}
+    # Standalone mode — allow ingress from anywhere on the service port.
+    # Restrict further in a values override if needed.
+    - ports:
+        - port: 8080
+          protocol: TCP
+    {{- end }}
+{{- end }}

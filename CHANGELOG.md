@@ -20,5 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage `Dockerfile` with native cross-compilation via `$BUILDPLATFORM`,
   OpenShift-compatible runtime (UID 1001, group 0, `HOME=/tmp`), and `apk upgrade`
   for CVE hygiene. `.dockerignore` keeps the build context minimal.
+- Helm chart under `helm/` supporting both gateway and standalone auth modes,
+  OpenShift `restricted-v2` SCC and vanilla Kubernetes, probes on `/health`,
+  optional Ingress / HTTPRoute / PodDisruptionBudget, and a `NetworkPolicy`
+  that is forced on in gateway mode. Template-level validation blocks
+  invalid combinations (e.g. `gateway` + `ingress.enabled`).
 
 [Unreleased]: https://github.com/JoWe112/ldapapi-ng/compare/v0.1.0...HEAD

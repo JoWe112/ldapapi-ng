@@ -1,0 +1,13 @@
+.DS_Store
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.bak
+*.tmp
+*.orig
+OWNERS
+OWNERS_ALIASES
+.project
+.editorconfig

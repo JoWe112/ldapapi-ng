@@ -1,0 +1,11 @@
+{{- if and .Values.ldap.caCert.enabled .Values.ldap.caCert.content -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ldapapi-ng.fullname" . }}-ca
+  labels:
+    {{- include "ldapapi-ng.labels" . | nindent 4 }}
+data:
+  {{ .Values.ldap.caCert.fileName }}: |-
+{{ .Values.ldap.caCert.content | indent 4 }}
+{{- end }}

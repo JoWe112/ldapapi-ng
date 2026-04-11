@@ -121,6 +121,45 @@ docker run --rm \
 
 The registry rejects images with HIGH or CRITICAL findings, so always scan before pushing.
 
+## Helm chart
+
+A Helm chart is included under `helm/` and supports both authentication topologies via `auth.mode`.
+
+### Gateway mode (default)
+
+The API is only reachable from an upstream gateway. A `NetworkPolicy` is installed automatically. `ingress.enabled` and `httpRoute.enabled` must stay false.
+
+```sh
+helm install ldapapi ./helm \
+  --set ldap.host=ldap.example.org \
+  --set ldap.baseDN=dc=example,dc=org \
+  --set networkPolicy.gatewayNamespaceSelector.matchLabels."kubernetes\.io/metadata\.name"=krakend
+```
+
+### Standalone mode
+
+The API enforces HTTP Basic Auth via LDAP bind and is exposed directly.
+
+```sh
+helm install ldapapi ./helm \
+  --set auth.mode=standalone \
+  --set ldap.host=ldap.example.org \
+  --set ldap.baseDN=dc=example,dc=org \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=ldapapi.example.org \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix
+```
+
+### Verify rendering without deploying
+
+```sh
+helm lint ./helm --set ldap.host=x --set ldap.baseDN=y
+helm template test ./helm --set ldap.host=x --set ldap.baseDN=y
+```
+
+The chart is designed to run unchanged on both OpenShift (`restricted-v2` SCC) and vanilla Kubernetes — `runAsUser` is intentionally left unset so OpenShift can assign a random UID from the namespace range while vanilla K8s falls back to the image's `USER 1001`.
+
 ## Project layout
 
 ```
@@ -130,4 +169,6 @@ internal/handler/   Gin handlers, middleware, router
 internal/ldap/      LDAPS client (auth + search)
 internal/version/   Build-time metadata (-ldflags)
 docs/               Generated OpenAPI / Swagger spec
+helm/               Helm chart
+Dockerfile          Multi-stage container build
 ```
