@@ -1,0 +1,29 @@
+# Normalize line endings to LF on commit (cross-platform safety)
+* text=auto eol=lf
+
+# Go source files
+*.go text eol=lf
+
+# Shell scripts must have LF
+*.sh text eol=lf
+
+# Explicitly binary — never diff/merge as text
+*.exe binary
+*.dll binary
+*.so  binary
+*.dylib binary
+*.test binary
+*.pem binary
+*.p12 binary
+*.pfx binary
+*.key binary
+*.jks binary
+*.keystore binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar binary
+*.gz  binary
