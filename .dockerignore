@@ -1,0 +1,39 @@
+# Keep the build context tiny and prevent local junk from leaking into the image.
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+
+# Docs and meta that aren't needed by the Go build
+*.md
+AGENTS.md
+PROMPT.md
+CHANGELOG.md
+README.md
+LICENSE
+
+# Local-only / secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Build outputs
+/bin
+/dist
+/out
+ldapapi-ng
+*.test
+*.out
+coverage.*
+
+# Dockerfile itself does not need to be part of its own context payload
+Dockerfile
+.dockerignore
