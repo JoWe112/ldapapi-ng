@@ -1,0 +1,25 @@
+apiVersion: v2
+name: ldapapi-ng
+description: REST API for LDAPS authentication and user lookup
+type: application
+
+# Bump on ANY chart change (templates, values, defaults).
+version: 0.1.0
+
+# Must match the Go binary version and the container image tag.
+appVersion: "0.1.0"
+
+kubeVersion: ">=1.25.0-0"
+
+keywords:
+  - ldap
+  - ldaps
+  - auth
+  - api
+
+sources:
+  - https://github.com/JoWe112/ldapapi-ng
+
+maintainers:
+  - name: JoWe112
+    url: https://github.com/JoWe112

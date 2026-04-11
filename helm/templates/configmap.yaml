@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ldapapi-ng.fullname" . }}-env
+  labels:
+    {{- include "ldapapi-ng.labels" . | nindent 4 }}
+data:
+  LISTEN_ADDR: {{ .Values.api.listenAddr | quote }}
+  AUTH_MODE: {{ .Values.auth.mode | quote }}
+  SWAGGER_ENABLED: {{ .Values.api.swaggerEnabled | quote }}
+  LDAP_HOST: {{ .Values.ldap.host | quote }}
+  LDAP_PORT: {{ .Values.ldap.port | quote }}
+  LDAP_BASE_DN: {{ .Values.ldap.baseDN | quote }}
+  LDAP_USER_FILTER: {{ .Values.ldap.userFilter | quote }}
+  LDAP_TIMEOUT: {{ .Values.ldap.timeout | quote }}
+  {{- if .Values.ldap.bindDN }}
+  LDAP_BIND_DN: {{ .Values.ldap.bindDN | quote }}
+  {{- end }}
+  {{- if .Values.ldap.caCert.enabled }}
+  LDAP_CA_CERT_PATH: {{ include "ldapapi-ng.caCertPath" . | quote }}
+  {{- end }}

@@ -1,0 +1,39 @@
+ldapapi-ng {{ .Chart.AppVersion }} has been deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Auth mode: {{ .Values.auth.mode }}
+
+{{- if eq .Values.auth.mode "gateway" }}
+
+GATEWAY MODE — the API is only reachable from the configured API gateway.
+A NetworkPolicy restricts ingress to pods matching:
+  namespaceSelector: {{ .Values.networkPolicy.gatewayNamespaceSelector | toJson }}
+  podSelector:       {{ .Values.networkPolicy.gatewayPodSelector | toJson }}
+
+Make sure your gateway (KrakenD) forwards requests to:
+  http://{{ include "ldapapi-ng.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+{{- else }}
+
+STANDALONE MODE — the API enforces HTTP Basic Auth via LDAP bind.
+
+{{- if .Values.ingress.enabled }}
+Ingress hosts:
+{{- range .Values.ingress.hosts }}
+  - https://{{ .host }}
+{{- end }}
+{{- else if .Values.httpRoute.enabled }}
+HTTPRoute hosts:
+{{- range .Values.httpRoute.hostnames }}
+  - https://{{ . }}
+{{- end }}
+{{- else }}
+No Ingress or HTTPRoute is configured. Use a port-forward to reach the API:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "ldapapi-ng.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+{{- end }}
+
+Quick checks:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/instance={{ .Release.Name }} --tail=20
+
+Health endpoint: GET /health  (always public, reports version and commit)
