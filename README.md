@@ -160,6 +160,10 @@ helm template test ./helm --set ldap.host=x --set ldap.baseDN=y
 
 The chart is designed to run unchanged on both OpenShift (`restricted-v2` SCC) and vanilla Kubernetes — `runAsUser` is intentionally left unset so OpenShift can assign a random UID from the namespace range while vanilla K8s falls back to the image's `USER 1001`.
 
+## KrakenD gateway
+
+When running in gateway mode, the upstream KrakenD Helm chart fronts `ldapapi-ng`. The configuration template, ConfigMap, example Secret, and values override live under [`deploy/krakend/`](deploy/krakend/). See [`deploy/krakend/README.md`](deploy/krakend/README.md) for install instructions and the full endpoint matrix. JWT routes validate tokens against a Keycloak JWKS; a parallel `/apikey/v1/*` route group accepts `X-API-Key` for service-to-service callers.
+
 ## Project layout
 
 ```
@@ -170,5 +174,6 @@ internal/ldap/      LDAPS client (auth + search)
 internal/version/   Build-time metadata (-ldflags)
 docs/               Generated OpenAPI / Swagger spec
 helm/               Helm chart
+deploy/krakend/     KrakenD gateway config + k8s manifests
 Dockerfile          Multi-stage container build
 ```

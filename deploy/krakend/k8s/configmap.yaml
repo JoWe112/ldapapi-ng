@@ -1,0 +1,161 @@
+# KrakenD Flexible Config template.
+#
+# The file is mounted into the KrakenD pod under /etc/krakend/templates and
+# rendered at startup with:
+#   FC_ENABLE=1
+#   FC_TEMPLATES=/etc/krakend/templates
+#   FC_OUT=/tmp/krakend.json
+#
+# The placeholders ({{ env "VAR" }}) are resolved from environment variables
+# supplied via the Secret in secret.example.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: krakend-config
+  labels:
+    app.kubernetes.io/name: krakend
+    app.kubernetes.io/part-of: ldapapi-ng
+data:
+  krakend.tmpl: |-
+    {
+      "$schema": "https://www.krakend.io/schema/v2.8/krakend.json",
+      "version": 3,
+      "name": "ldapapi-ng-gateway",
+      "port": 8080,
+      "timeout": "15s",
+      "cache_ttl": "0s",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "telemetry/logging": {
+          "level": "INFO",
+          "prefix": "[KRAKEND]",
+          "stdout": true,
+          "format": "default"
+        },
+        "security/http": {
+          "sts_seconds": 31536000,
+          "sts_include_subdomains": true,
+          "frame_deny": true,
+          "content_type_nosniff": true,
+          "browser_xss_filter": true,
+          "referrer_policy": "no-referrer",
+          "content_security_policy": "default-src 'none'"
+        },
+        "router": {
+          "disable_access_log": false,
+          "return_error_msg": false,
+          "remove_single_element_collections": true
+        }
+      },
+      "endpoints": [
+        {
+          "endpoint": "/health",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "backend": [
+            {
+              "url_pattern": "/health",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": ["{{ env "LDAPAPI_UPSTREAM" }}"]
+            }
+          ]
+        },
+        {
+          "endpoint": "/v1/auth",
+          "method": "POST",
+          "output_encoding": "no-op",
+          "input_headers": ["Authorization", "Content-Type"],
+          "extra_config": {
+            "auth/validator": {
+              "alg": "RS256",
+              "jwk_url": "{{ env "KEYCLOAK_JWKS_URL" }}",
+              "issuer": "{{ env "KEYCLOAK_ISSUER" }}",
+              "audience": ["{{ env "KEYCLOAK_AUDIENCE" }}"],
+              "cache": true,
+              "disable_jwk_security": false,
+              "roles_key": "realm_access.roles",
+              "roles": ["ldapapi-user"],
+              "propagate_claims": [["preferred_username", "x-forwarded-user"]]
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/auth",
+              "method": "POST",
+              "encoding": "no-op",
+              "host": ["{{ env "LDAPAPI_UPSTREAM" }}"]
+            }
+          ]
+        },
+        {
+          "endpoint": "/v1/user/{uid}",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "extra_config": {
+            "auth/validator": {
+              "alg": "RS256",
+              "jwk_url": "{{ env "KEYCLOAK_JWKS_URL" }}",
+              "issuer": "{{ env "KEYCLOAK_ISSUER" }}",
+              "audience": ["{{ env "KEYCLOAK_AUDIENCE" }}"],
+              "cache": true,
+              "disable_jwk_security": false,
+              "roles_key": "realm_access.roles",
+              "roles": ["ldapapi-user"]
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/user/{uid}",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": ["{{ env "LDAPAPI_UPSTREAM" }}"]
+            }
+          ]
+        },
+        {
+          "endpoint": "/apikey/v1/auth",
+          "method": "POST",
+          "output_encoding": "no-op",
+          "input_headers": ["Authorization", "Content-Type", "X-API-Key"],
+          "extra_config": {
+            "auth/api-keys": {
+              "strategy": "header",
+              "identifier": "X-API-Key",
+              "roles": ["ldapapi-user"],
+              "keys": {{ env "KRAKEND_API_KEYS_JSON" }}
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/auth",
+              "method": "POST",
+              "encoding": "no-op",
+              "host": ["{{ env "LDAPAPI_UPSTREAM" }}"]
+            }
+          ]
+        },
+        {
+          "endpoint": "/apikey/v1/user/{uid}",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "input_headers": ["X-API-Key"],
+          "extra_config": {
+            "auth/api-keys": {
+              "strategy": "header",
+              "identifier": "X-API-Key",
+              "roles": ["ldapapi-user"],
+              "keys": {{ env "KRAKEND_API_KEYS_JSON" }}
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/user/{uid}",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": ["{{ env "LDAPAPI_UPSTREAM" }}"]
+            }
+          ]
+        }
+      ]
+    }

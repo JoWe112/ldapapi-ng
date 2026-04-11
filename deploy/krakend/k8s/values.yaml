@@ -1,0 +1,111 @@
+# Values override for the upstream KrakenD Helm chart
+# (https://github.com/krakend/krakend-charts). Install with:
+#
+#   helm repo add krakend https://krakend.github.io/krakend-charts
+#   helm repo update
+#   kubectl apply -f configmap.yaml
+#   kubectl apply -f secret.yaml       # your populated copy of secret.example.yaml
+#   helm install krakend krakend/krakend \
+#     --namespace krakend --create-namespace \
+#     -f values.yaml
+#
+# Label alignment with ldapapi-ng's NetworkPolicy
+# ------------------------------------------------
+# The ldapapi-ng chart's NetworkPolicy (gateway mode) pins ingress to pods
+# matching:
+#
+#   namespaceSelector: kubernetes.io/metadata.name=krakend
+#   podSelector:       app.kubernetes.io/name=krakend
+#
+# The defaults below keep those labels intact — do not rename the release or
+# override `nameOverride` without also updating the ldapapi-ng values.
+
+replicaCount: 2
+
+image:
+  registry: docker.io
+  repository: devopsfaith/krakend
+  tag: "2.10"
+  pullPolicy: IfNotPresent
+
+# Flexible Config: render krakend.tmpl into krakend.json at startup using
+# environment variables from the Secret.
+extraEnvVars:
+  - name: FC_ENABLE
+    value: "1"
+  - name: FC_OUT
+    value: "/tmp/krakend.json"
+  - name: FC_TEMPLATES
+    value: "/etc/krakend/templates"
+
+# Pull every non-secret env var from the Secret (it also holds the URLs).
+extraEnvVarsSecret: krakend-secrets
+
+# Tell KrakenD to run against the rendered config.
+command:
+  - /usr/bin/krakend
+  - run
+  - --config
+  - /tmp/krakend.json
+  - --port
+  - "8080"
+
+# Hardened pod security context — the upstream chart keeps this flexible;
+# mirror the ldapapi-ng chart so both workloads pass restricted-v2 SCC.
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 0
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+# /tmp must be writable because Flexible Config writes the rendered JSON there.
+extraVolumes:
+  - name: krakend-template
+    configMap:
+      name: krakend-config
+  - name: tmp
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: krakend-template
+    mountPath: /etc/krakend/templates
+    readOnly: true
+  - name: tmp
+    mountPath: /tmp
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 1
+    memory: 512Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# TLS termination happens at an Ingress or HTTPRoute in front of KrakenD — the
+# gateway itself only speaks HTTP inside the cluster. Configure the relevant
+# block depending on your ingress flavour.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ldapapi.example.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - hosts:
+  #      - ldapapi.example.org
+  #    secretName: ldapapi-tls

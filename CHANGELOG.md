@@ -25,5 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional Ingress / HTTPRoute / PodDisruptionBudget, and a `NetworkPolicy`
   that is forced on in gateway mode. Template-level validation blocks
   invalid combinations (e.g. `gateway` + `ingress.enabled`).
+- KrakenD gateway configuration under `deploy/krakend/`: Flexible-Config
+  template (`krakend.tmpl`) with JWT (`auth/validator` against Keycloak JWKS)
+  and API-key (`auth/api-keys`) route groups, ConfigMap, example Secret, and
+  upstream Helm chart values override. Label defaults stay aligned with the
+  ldapapi-ng `NetworkPolicy` so gateway mode works out of the box.
+- Dependabot configuration (`.github/dependabot.yml`) for `gomod`, `docker`,
+  and `github-actions` ecosystems.
 
 [Unreleased]: https://github.com/JoWe112/ldapapi-ng/compare/v0.1.0...HEAD
