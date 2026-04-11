@@ -51,7 +51,11 @@ ldap:
   port: 636
   # -- Base DN for user searches (required).
   baseDN: ""
-  # -- Optional service account DN used to resolve user DNs.
+  # -- Service account DN used to search the directory for the end-user's DN
+  # before binding as them. Required when the directory forbids anonymous
+  # search (Active Directory and most hardened OpenLDAP deployments); leave
+  # empty only if anonymous search is allowed. This is unrelated to which
+  # `auth.mode` the API runs in.
   bindDN: ""
   # -- Password for the service account. If set, rendered into a Secret.
   bindPassword: ""
