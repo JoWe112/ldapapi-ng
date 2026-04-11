@@ -77,6 +77,50 @@ go install github.com/swaggo/swag/cmd/swag@latest
 swag init -g cmd/ldapapi-ng/main.go -o docs --parseInternal
 ```
 
+## Container image
+
+The project ships a multi-stage `Dockerfile` producing a small, OpenShift-compatible image based on `alpine:3.22`. The builder stage runs on the host's native architecture and Go cross-compiles to `linux/amd64`, so the build stays fast even on Apple Silicon.
+
+### Build
+
+```sh
+docker buildx build \
+  --platform linux/amd64 \
+  --build-arg VERSION="$(git describe --tags --always)" \
+  --build-arg COMMIT="$(git rev-parse --short HEAD)" \
+  --build-arg DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -t core.51335.xyz/2025/ldapapi-ng:<version> \
+  --load .
+```
+
+Push with `--push` instead of `--load` once ready.
+
+### Run locally
+
+```sh
+docker run --rm -p 8080:8080 \
+  -e LDAP_HOST=ldap.example.org \
+  -e LDAP_BASE_DN=dc=example,dc=org \
+  -e LDAP_CA_CERT_PATH=/etc/ssl/certs/ca.pem \
+  -v /path/to/ca.pem:/etc/ssl/certs/ca.pem:ro \
+  core.51335.xyz/2025/ldapapi-ng:<version>
+```
+
+### Scan for vulnerabilities (Trivy)
+
+Trivy is run as a container — nothing is installed on the host:
+
+```sh
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+  aquasec/trivy:0.69.3 image \
+    --severity HIGH,CRITICAL --exit-code 1 \
+    core.51335.xyz/2025/ldapapi-ng:<version>
+```
+
+The registry rejects images with HIGH or CRITICAL findings, so always scan before pushing.
+
 ## Project layout
 
 ```
