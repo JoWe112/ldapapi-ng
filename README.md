@@ -29,7 +29,7 @@ Configuration is read from environment variables.
 | `LDAP_HOST`           | *(required)*   | LDAPS hostname.                                          |
 | `LDAP_PORT`           | `636`          | LDAPS port.                                              |
 | `LDAP_BASE_DN`        | *(required)*   | Search base, e.g. `dc=example,dc=org`.                   |
-| `LDAP_BIND_DN`        | *(empty)*      | Optional service account DN used to resolve user DNs.   |
+| `LDAP_BIND_DN`        | *(empty)*      | Service account DN used to search the directory. See [LDAP service account](#ldap-service-account) below. |
 | `LDAP_BIND_PASSWORD`  | *(empty)*      | Password for the service account.                        |
 | `LDAP_USER_FILTER`    | `(uid=%s)`     | Search filter template; `%s` is replaced by the uid.     |
 | `LDAP_CA_CERT_PATH`   | *(empty)*      | Path to a CA cert PEM used to verify the LDAPS cert.     |
@@ -44,6 +44,30 @@ Configuration is read from environment variables.
   a NetworkPolicy must restrict ingress to the gateway only.
 - **standalone**: the API itself enforces HTTP Basic Auth by performing an
   LDAP bind with the submitted credentials.
+
+### LDAP service account
+
+`LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` configure a **service account** used to
+*search* the directory. Every request — both `POST /v1/auth` and `GET /v1/user/:uid` — does a two-step flow:
+
+1. Bind as the service account and run `LDAP_USER_FILTER` under `LDAP_BASE_DN`
+   to resolve the user's full DN.
+2. For `/v1/auth`, rebind as the resolved DN with the end-user's password to
+   verify the credentials. For `/v1/user/:uid`, return the attributes from the
+   search result.
+
+Whether you need the service account depends on your **directory's ACLs**,
+not on which auth mode the API runs in:
+
+| Directory policy | `LDAP_BIND_DN` / `_PASSWORD` |
+|---|---|
+| Anonymous search is **forbidden** (Active Directory, most hardened OpenLDAP) | **Required** — without it the search in step 1 returns nothing and auth fails with "user not found" even for correct passwords. |
+| Anonymous search is allowed | Optional — leave empty to skip the service bind. |
+
+The end-user's own credentials (from HTTP Basic Auth in standalone mode, or
+from the JWT in gateway mode) cannot substitute for the service account,
+because at step 1 the API does not yet know the user's DN — that is the
+search's whole purpose.
 
 ## Build
 
