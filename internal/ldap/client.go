@@ -116,7 +116,7 @@ func (c *client) Authenticate(ctx context.Context, username, password string) er
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Service bind (optional) to search for the user's DN.
 	if c.opts.BindDN != "" {
@@ -146,7 +146,7 @@ func (c *client) LookupUser(ctx context.Context, uid string) (map[string][]strin
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if c.opts.BindDN != "" {
 		if err := conn.Bind(c.opts.BindDN, c.opts.BindPass); err != nil {

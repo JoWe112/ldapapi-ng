@@ -11,7 +11,7 @@ permissions:
 
 env:
   GO_VERSION: "1.25.9"
-  GOLANGCI_LINT_VERSION: "v1.62.2"
+  GOLANGCI_LINT_VERSION: "v2.11.4"
   TRIVY_VERSION: "0.58.1"
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
         run: go test ./... -race -count=1
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=5m
