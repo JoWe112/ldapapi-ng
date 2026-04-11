@@ -1,0 +1,6 @@
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-policies/about-code-owners
+#
+# Every file is owned by @JoWe112 by default. Add more specific rules above
+# this line if different areas need different owners.
+
+*       @JoWe112
