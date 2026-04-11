@@ -194,7 +194,7 @@ cover/
 # Dependency directories (New projects use go modules, but if vendoring is used)
 vendor/
 
-# Go workspace file
+# Go workspace
 go.work
 go.work.sum
 
