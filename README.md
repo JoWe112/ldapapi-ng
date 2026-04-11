@@ -1,5 +1,10 @@
 # ldapapi-ng
 
+[![CI](https://github.com/JoWe112/ldapapi-ng/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JoWe112/ldapapi-ng/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/JoWe112/ldapapi-ng)](go.mod)
+[![Go Report Card](https://goreportcard.com/badge/github.com/JoWe112/ldapapi-ng)](https://goreportcard.com/report/github.com/JoWe112/ldapapi-ng)
+
 A small REST API that authenticates users and looks up attributes over LDAPS.
 Written in Go, designed to run behind an API gateway (KrakenD) or standalone
 with HTTP Basic Auth validated against LDAP bind.
