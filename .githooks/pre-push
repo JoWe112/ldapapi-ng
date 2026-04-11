@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# pre-push: guard against direct pushes to protected branches
+
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+PROTECTED_BRANCHES=(main master release develop)
+
+REMOTE="$1"
+REMOTE_URL="$2"
+
+while read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+    # Extract branch name from remote ref
+    BRANCH="${REMOTE_REF#refs/heads/}"
+
+    for PROTECTED in "${PROTECTED_BRANCHES[@]}"; do
+        if [ "$BRANCH" = "$PROTECTED" ]; then
+            echo -e "${YELLOW}[WARNING] You are pushing directly to '${BRANCH}'.${NC}"
+            echo -e "${YELLOW}Consider using a feature branch and pull request instead.${NC}"
+            echo ""
+            printf "Push directly to '%s'? [y/N] " "$BRANCH"
+            # Read from the terminal, not stdin (which git uses for the hook input)
+            if [ -t 1 ] && [ -e /dev/tty ]; then
+                exec < /dev/tty
+                read -r REPLY
+            else
+                # Non-interactive shell — block by default for safety
+                echo ""
+                echo "Non-interactive shell detected. Blocking push to protected branch."
+                echo "Use --no-verify to bypass if you are certain."
+                exit 1
+            fi
+            if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+                echo "Push cancelled."
+                exit 1
+            fi
+        fi
+    done
+done
+
+exit 0
