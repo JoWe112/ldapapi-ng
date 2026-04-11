@@ -201,3 +201,7 @@ helm/               Helm chart
 deploy/krakend/     KrakenD gateway config + k8s manifests
 Dockerfile          Multi-stage container build
 ```
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for the copyright line.
