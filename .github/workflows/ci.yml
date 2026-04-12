@@ -15,13 +15,10 @@ env:
   TRIVY_VERSION: "0.58.1"
 
 jobs:
-  # Detect which areas of the repo a PR touches so the heavy jobs below can
-  # skip themselves when they would otherwise do nothing useful. Jobs skipped
-  # via `if:` report as "success" to branch protection, so required checks
-  # still resolve on docs-only PRs without hanging.
-  #
-  # On push to main every job runs unconditionally as a safety net against
-  # two independent PRs interacting badly on the integration branch.
+  # Detect which areas of the repo changed so heavy jobs can skip themselves
+  # when they would do nothing useful. Jobs skipped via `if:` report as
+  # "success" to branch protection, so required checks still resolve on
+  # docs-only PRs and docs-only pushes to main without hanging.
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
@@ -59,7 +56,7 @@ jobs:
     name: Go build, test, lint
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.go == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -101,7 +98,7 @@ jobs:
     name: KrakenD template sanity
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.krakend == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.krakend == 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Render and validate krakend.tmpl
@@ -126,7 +123,7 @@ jobs:
     name: Helm lint and template
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.helm == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.helm == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
@@ -156,7 +153,7 @@ jobs:
     name: Docker build + Trivy scan
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.image == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.image == 'true'
     steps:
       - uses: actions/checkout@v4
 
