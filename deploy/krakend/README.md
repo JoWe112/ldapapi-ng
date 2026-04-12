@@ -15,10 +15,9 @@ client ──TLS──▶ Ingress / HTTPRoute ──▶ KrakenD ──cluster HT
 
 | File | Purpose |
 | --- | --- |
-| `krakend.tmpl` | Flexible-Config template rendered into `krakend.json` at pod start. |
-| `k8s/configmap.yaml` | ConfigMap that mounts `krakend.tmpl` under `/etc/krakend/templates`. |
+| `krakend.tmpl` | Standalone copy of the Flexible-Config template (for reference / local testing). The same content is inlined in `k8s/values.yaml` under `krakend.config`. |
+| `k8s/values.yaml` | Values override for the upstream [KrakenD Helm chart](https://github.com/equinixmetal-helm/krakend) (maintained by Equinix Metal). Contains the full config template inline — the chart renders it into a ConfigMap automatically. |
 | `k8s/secret.example.yaml` | Example Secret with every env var the template expects — copy, populate, and apply the copy (**never commit populated secrets**). |
-| `k8s/values.yaml` | Values override for the upstream [KrakenD Helm chart](https://github.com/equinixmetal-helm/krakend) (maintained by Equinix Metal). |
 
 ## Endpoints
 
@@ -48,10 +47,10 @@ JWTs are validated with `alg: RS256`, the `iss` and `aud` claims must match
 | `KEYCLOAK_ISSUER` | Expected `iss` claim. |
 | `KEYCLOAK_AUDIENCE` | Expected `aud` claim (client id). |
 | `KRAKEND_API_KEYS_JSON` | Raw JSON array of `{ "key": ..., "roles": [...] }` entries injected into the config. |
-| `OAUTH2_CLIENT` | Published to service-to-service callers in the format `clientId:clientSecret:tokenUrl`. KrakenD itself does not consume this — it documents how a caller can obtain a token. |
 
-All of these live in the Secret so that rotating them is a `kubectl apply` +
-rollout restart away.
+All of these live in a Kubernetes Secret named `krakend-secrets`. The chart
+injects them as environment variables via `krakend.envFromSecret`, and
+Flexible Config resolves the `{{ env "VAR" }}` placeholders at pod startup.
 
 ## Install
 
@@ -60,20 +59,24 @@ rollout restart away.
 helm repo add equinixmetal https://helm.equinixmetal.com
 helm repo update
 
-# 2. Create the namespace
+# 2. Create the namespace and the Secret with your real values
 kubectl create namespace krakend
+kubectl create secret generic krakend-secrets -n krakend \
+  --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc:8080 \
+  --from-literal=KEYCLOAK_JWKS_URL=https://keycloak.example.org/realms/myrealm/protocol/openid-connect/certs \
+  --from-literal=KEYCLOAK_ISSUER=https://keycloak.example.org/realms/myrealm \
+  --from-literal=KEYCLOAK_AUDIENCE=ldapapi-ng \
+  --from-literal='KRAKEND_API_KEYS_JSON=[{"key":"changeme","roles":["ldapapi-user"]}]'
 
-# 3. Apply the template ConfigMap and your populated Secret
-kubectl apply -n krakend -f k8s/configmap.yaml
-cp k8s/secret.example.yaml /tmp/krakend-secret.yaml
-# ... edit /tmp/krakend-secret.yaml and fill in real values ...
-kubectl apply -n krakend -f /tmp/krakend-secret.yaml
-
-# 4. Install the chart with our values override
+# 3. Install the chart with our values override
 helm install krakend equinixmetal/krakend \
   --namespace krakend \
   -f k8s/values.yaml
 ```
+
+No manual `kubectl apply` of a ConfigMap is needed — the chart creates the
+ConfigMap from the `krakend.config` value in `values.yaml` and mounts it
+automatically.
 
 ## Label alignment with the ldapapi-ng NetworkPolicy
 
@@ -90,8 +93,8 @@ ldapapi-ng side, or traffic from the gateway will be dropped.
 
 ## Validating the template locally
 
-The template is plain JSON with `{{ env "VAR" }}` substitutions. To
-sanity-check it without starting KrakenD:
+The standalone `krakend.tmpl` file in this directory is identical to the
+config inlined in `values.yaml`. To sanity-check it without starting KrakenD:
 
 ```sh
 sed -e 's/{{ env "LDAPAPI_UPSTREAM" }}/http:\/\/localhost:8080/g' \

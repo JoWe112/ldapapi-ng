@@ -3,8 +3,12 @@
 #
 #   helm repo add equinixmetal https://helm.equinixmetal.com
 #   helm repo update
-#   kubectl apply -f configmap.yaml
-#   kubectl apply -f secret.yaml       # your populated copy of secret.example.yaml
+#   kubectl create secret generic krakend-secrets -n krakend \
+#     --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc:8080 \
+#     --from-literal=KEYCLOAK_JWKS_URL=https://keycloak.example.org/realms/myrealm/protocol/openid-connect/certs \
+#     --from-literal=KEYCLOAK_ISSUER=https://keycloak.example.org/realms/myrealm \
+#     --from-literal=KEYCLOAK_AUDIENCE=ldapapi-ng \
+#     --from-literal='KRAKEND_API_KEYS_JSON=[{"key":"changeme","roles":["ldapapi-user"]}]'
 #   helm install krakend equinixmetal/krakend \
 #     --namespace krakend --create-namespace \
 #     -f values.yaml
@@ -28,30 +32,210 @@ image:
   tag: "2.10"
   pullPolicy: IfNotPresent
 
-# Flexible Config: render krakend.tmpl into krakend.json at startup using
-# environment variables from the Secret.
-extraEnvVars:
-  - name: FC_ENABLE
-    value: "1"
-  - name: FC_OUT
-    value: "/tmp/krakend.json"
-  - name: FC_TEMPLATES
-    value: "/etc/krakend/templates"
+# ---------------------------------------------------------------------------
+# KrakenD configuration
+# ---------------------------------------------------------------------------
+# The chart creates a ConfigMap named `krakend-config` from krakend.config,
+# mounts it at /etc/krakend-src/config/krakend.tmpl, and sets FC_ENABLE=1 so
+# Flexible Config renders {{ env "VAR" }} placeholders at startup. We only
+# need to supply the template and the Secret holding the env vars.
+krakend:
+  # Inline the full Flexible Config template. The chart renders this into the
+  # krakend-config ConfigMap and mounts it automatically — no manual
+  # `kubectl apply` needed.
+  config: |
+    {
+      "$schema": "https://www.krakend.io/schema/v2.8/krakend.json",
+      "version": 3,
+      "name": "ldapapi-ng-gateway",
+      "port": 8080,
+      "timeout": "15s",
+      "cache_ttl": "0s",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "telemetry/logging": {
+          "level": "INFO",
+          "prefix": "[KRAKEND]",
+          "syslog": false,
+          "stdout": true,
+          "format": "default"
+        },
+        "security/http": {
+          "allowed_hosts": [],
+          "ssl_proxy_headers": {
+            "X-Forwarded-Proto": "https"
+          },
+          "sts_seconds": 31536000,
+          "sts_include_subdomains": true,
+          "frame_deny": true,
+          "content_type_nosniff": true,
+          "browser_xss_filter": true,
+          "referrer_policy": "no-referrer",
+          "content_security_policy": "default-src 'none'"
+        },
+        "router": {
+          "disable_access_log": false,
+          "return_error_msg": false,
+          "remove_single_element_collections": true
+        }
+      },
+      "endpoints": [
+        {
+          "endpoint": "/health",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "backend": [
+            {
+              "url_pattern": "/health",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": [
+                "{{ env "LDAPAPI_UPSTREAM" }}"
+              ]
+            }
+          ]
+        },
+        {
+          "endpoint": "/v1/auth",
+          "method": "POST",
+          "output_encoding": "no-op",
+          "input_headers": [
+            "Authorization",
+            "Content-Type"
+          ],
+          "extra_config": {
+            "auth/validator": {
+              "alg": "RS256",
+              "jwk_url": "{{ env "KEYCLOAK_JWKS_URL" }}",
+              "issuer": "{{ env "KEYCLOAK_ISSUER" }}",
+              "audience": [
+                "{{ env "KEYCLOAK_AUDIENCE" }}"
+              ],
+              "cache": true,
+              "disable_jwk_security": false,
+              "roles_key": "realm_access.roles",
+              "roles": [
+                "ldapapi-user"
+              ],
+              "propagate_claims": [
+                ["preferred_username", "x-forwarded-user"]
+              ]
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/auth",
+              "method": "POST",
+              "encoding": "no-op",
+              "host": [
+                "{{ env "LDAPAPI_UPSTREAM" }}"
+              ]
+            }
+          ]
+        },
+        {
+          "endpoint": "/v1/user/{uid}",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "extra_config": {
+            "auth/validator": {
+              "alg": "RS256",
+              "jwk_url": "{{ env "KEYCLOAK_JWKS_URL" }}",
+              "issuer": "{{ env "KEYCLOAK_ISSUER" }}",
+              "audience": [
+                "{{ env "KEYCLOAK_AUDIENCE" }}"
+              ],
+              "cache": true,
+              "disable_jwk_security": false,
+              "roles_key": "realm_access.roles",
+              "roles": [
+                "ldapapi-user"
+              ]
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/user/{uid}",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": [
+                "{{ env "LDAPAPI_UPSTREAM" }}"
+              ]
+            }
+          ]
+        },
+        {
+          "endpoint": "/apikey/v1/auth",
+          "method": "POST",
+          "output_encoding": "no-op",
+          "input_headers": [
+            "Authorization",
+            "Content-Type",
+            "X-API-Key"
+          ],
+          "extra_config": {
+            "auth/api-keys": {
+              "strategy": "header",
+              "identifier": "X-API-Key",
+              "roles": [
+                "ldapapi-user"
+              ],
+              "keys": {{ env "KRAKEND_API_KEYS_JSON" }}
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/auth",
+              "method": "POST",
+              "encoding": "no-op",
+              "host": [
+                "{{ env "LDAPAPI_UPSTREAM" }}"
+              ]
+            }
+          ]
+        },
+        {
+          "endpoint": "/apikey/v1/user/{uid}",
+          "method": "GET",
+          "output_encoding": "no-op",
+          "input_headers": [
+            "X-API-Key"
+          ],
+          "extra_config": {
+            "auth/api-keys": {
+              "strategy": "header",
+              "identifier": "X-API-Key",
+              "roles": [
+                "ldapapi-user"
+              ],
+              "keys": {{ env "KRAKEND_API_KEYS_JSON" }}
+            }
+          },
+          "backend": [
+            {
+              "url_pattern": "/v1/user/{uid}",
+              "method": "GET",
+              "encoding": "no-op",
+              "host": [
+                "{{ env "LDAPAPI_UPSTREAM" }}"
+              ]
+            }
+          ]
+        }
+      ]
+    }
 
-# Pull every non-secret env var from the Secret (it also holds the URLs).
-extraEnvVarsSecret: krakend-secrets
+  # Disable the default partials that ship with the chart — our config is
+  # self-contained and does not reference any partials.
+  partials: {}
+  templates: {}
 
-# Tell KrakenD to run against the rendered config.
-command:
-  - /usr/bin/krakend
-  - run
-  - --config
-  - /tmp/krakend.json
-  - --port
-  - "8080"
+  # Env vars from the Secret — the chart injects these into the container so
+  # Flexible Config can resolve {{ env "VAR" }} at startup.
+  envFromSecret: krakend-secrets
 
-# Hardened pod security context — the upstream chart keeps this flexible;
-# mirror the ldapapi-ng chart so both workloads pass restricted-v2 SCC.
+# Hardened pod security context — mirror the ldapapi-ng chart so both
+# workloads pass restricted-v2 SCC on OpenShift.
 podSecurityContext:
   runAsNonRoot: true
   fsGroup: 0
@@ -65,21 +249,6 @@ securityContext:
   capabilities:
     drop:
       - ALL
-
-# /tmp must be writable because Flexible Config writes the rendered JSON there.
-extraVolumes:
-  - name: krakend-template
-    configMap:
-      name: krakend-config
-  - name: tmp
-    emptyDir: {}
-
-extraVolumeMounts:
-  - name: krakend-template
-    mountPath: /etc/krakend/templates
-    readOnly: true
-  - name: tmp
-    mountPath: /tmp
 
 resources:
   requests:
