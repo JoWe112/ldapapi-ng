@@ -5,6 +5,7 @@ metadata:
   labels:
     {{- include "ldapapi-ng.labels" . | nindent 4 }}
 data:
+  LOG_LEVEL: {{ .Values.api.logLevel | quote }}
   LISTEN_ADDR: {{ .Values.api.listenAddr | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
   SWAGGER_ENABLED: {{ .Values.api.swaggerEnabled | quote }}

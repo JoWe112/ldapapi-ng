@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +26,9 @@ const (
 
 // Config holds all runtime configuration.
 type Config struct {
+	// Logging
+	LogLevel slog.Level
+
 	// HTTP server
 	ListenAddr string
 
@@ -51,6 +55,7 @@ type Config struct {
 // Load reads configuration from environment variables and validates it.
 func Load() (*Config, error) {
 	cfg := &Config{
+		LogLevel:       parseLogLevel(getEnv("LOG_LEVEL", "INFO")),
 		ListenAddr:     getEnv("LISTEN_ADDR", ":8080"),
 		LDAPHost:       os.Getenv("LDAP_HOST"),
 		LDAPPort:       getEnvInt("LDAP_PORT", 636),
@@ -122,4 +127,22 @@ func getEnvDuration(key string, def time.Duration) time.Duration {
 		}
 	}
 	return def
+}
+
+// parseLogLevel maps a string to a slog.Level.
+// Accepted values (case-insensitive): DEBUG, INFO, WARN, ERROR.
+// Unknown values default to INFO.
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN", "WARNING":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }

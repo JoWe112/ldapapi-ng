@@ -25,6 +25,8 @@ import (
 )
 
 func main() {
+	// Create a preliminary logger so config-load errors are visible.
+	// Once config is loaded, the logger is replaced with the configured level.
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(log)
 
@@ -35,16 +37,21 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	log.Info("starting ldapapi-ng",
-		"version", version.Version,
-		"commit", version.Commit,
-		"date", version.Date,
-	)
-
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
+
+	// Replace the logger with the configured level.
+	log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+	slog.SetDefault(log)
+
+	log.Info("starting ldapapi-ng",
+		"version", version.Version,
+		"commit", version.Commit,
+		"date", version.Date,
+		"log_level", cfg.LogLevel.String(),
+	)
 
 	ldap, err := ldapclient.New(ldapclient.Options{
 		Host:       cfg.LDAPHost,
@@ -55,6 +62,7 @@ func run(log *slog.Logger) error {
 		UserFilter: cfg.LDAPUserFilter,
 		CACertPath: cfg.LDAPCACertPath,
 		Timeout:    cfg.LDAPTimeout,
+		Log:        log,
 	})
 	if err != nil {
 		return err

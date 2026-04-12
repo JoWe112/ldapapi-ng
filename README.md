@@ -30,6 +30,7 @@ Configuration is read from environment variables.
 
 | Variable              | Default        | Description                                              |
 |-----------------------|----------------|----------------------------------------------------------|
+| `LOG_LEVEL`           | `INFO`         | Log verbosity: `DEBUG`, `INFO`, `WARN`, `ERROR`.         |
 | `LISTEN_ADDR`         | `:8080`        | HTTP listen address.                                     |
 | `LDAP_HOST`           | *(required)*   | LDAPS hostname.                                          |
 | `LDAP_PORT`           | `636`          | LDAPS port.                                              |

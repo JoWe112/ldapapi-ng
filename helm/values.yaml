@@ -84,6 +84,8 @@ ldap:
 api:
   # -- HTTP listen address inside the container.
   listenAddr: ":8080"
+  # -- Log verbosity: DEBUG, INFO, WARN, ERROR.
+  logLevel: "INFO"
   # -- Expose /swagger/*. Must stay false in production.
   swaggerEnabled: false
 
