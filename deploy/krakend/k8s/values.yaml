@@ -4,7 +4,7 @@
 #   helm repo add equinixmetal https://helm.equinixmetal.com
 #   helm repo update
 #   kubectl create secret generic krakend-secrets -n krakend \
-#     --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc:8080 \
+#     --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc.cluster.local:8080 \
 #     --from-literal=KEYCLOAK_JWKS_URL=https://keycloak.example.org/realms/myrealm/protocol/openid-connect/certs \
 #     --from-literal=KEYCLOAK_ISSUER=https://keycloak.example.org/realms/myrealm \
 #     --from-literal=KEYCLOAK_AUDIENCE=ldapapi-ng \

@@ -38,19 +38,48 @@ JWTs are validated with `alg: RS256`, the `iss` and `aud` claims must match
 `preferred_username` claim is propagated to the upstream as
 `X-Forwarded-User`.
 
-## Environment variables consumed by the template
+## Secret values (krakend-secrets)
 
-| Variable | Description |
-| --- | --- |
-| `LDAPAPI_UPSTREAM` | Full URL to the ldapapi-ng Service, e.g. `http://ldapapi-ng.ldapapi-ng.svc:8080`. |
-| `KEYCLOAK_JWKS_URL` | Keycloak realm JWKS endpoint. |
-| `KEYCLOAK_ISSUER` | Expected `iss` claim. |
-| `KEYCLOAK_AUDIENCE` | Expected `aud` claim (client id). |
-| `KRAKEND_API_KEYS_JSON` | Raw JSON array of `{ "key": ..., "roles": [...] }` entries injected into the config. |
+All configuration that varies per environment lives in a Kubernetes Secret
+named `krakend-secrets`. The chart injects them as environment variables via
+`krakend.envFromSecret`, and KrakenD's Flexible Config resolves the
+`{{ env "VAR" }}` placeholders at pod startup.
 
-All of these live in a Kubernetes Secret named `krakend-secrets`. The chart
-injects them as environment variables via `krakend.envFromSecret`, and
-Flexible Config resolves the `{{ env "VAR" }}` placeholders at pod startup.
+| Variable | Required | Example | Description |
+| --- | --- | --- | --- |
+| `LDAPAPI_UPSTREAM` | **yes** | `http://ldapapi-ng.ldapapi-ng.svc.cluster.local:8080` | Full URL to the ldapapi-ng Service. **Must use the fully-qualified domain** (`<service>.<namespace>.svc.cluster.local`) — the short form (`svc` without `.cluster.local`) does not resolve reliably across namespaces. The port must match `api.listenAddr` in the ldapapi-ng Helm values (default `8080`). |
+| `KEYCLOAK_JWKS_URL` | **yes** (JWT routes) | `https://keycloak.example.org/realms/myrealm/protocol/openid-connect/certs` | Keycloak realm JWKS endpoint. KrakenD fetches and caches the signing keys from this URL to validate JWT tokens on the `/v1/*` routes. Must be reachable from the KrakenD pods. |
+| `KEYCLOAK_ISSUER` | **yes** (JWT routes) | `https://keycloak.example.org/realms/myrealm` | Expected `iss` claim in the JWT. Must match the issuer your Keycloak realm advertises — typically the realm URL without a trailing slash. |
+| `KEYCLOAK_AUDIENCE` | **yes** (JWT routes) | `ldapapi-ng` | Expected `aud` claim (the Keycloak client ID). Tokens without this audience are rejected. |
+| `KRAKEND_API_KEYS_JSON` | **yes** (API key routes) | `[{"key":"QNl1...","roles":["ldapapi-user"]}]` | Raw JSON array injected verbatim into the config. Each entry must have `key` (the API key string) and `roles` (must include `ldapapi-user`). Multiple keys are supported. Keep this value opaque — avoid logging or exposing it. |
+
+### Constructing `LDAPAPI_UPSTREAM`
+
+The URL follows the pattern:
+
+```
+http://<helm-release-name>.<namespace>.svc.cluster.local:<port>
+```
+
+For example, if you installed the ldapapi-ng Helm chart with:
+
+```sh
+helm install ldapapi ./helm --namespace ldapapi-ng
+```
+
+Then the service name defaults to `ldapapi-ldapapi-ng` (release + chart name)
+or `ldapapi-ng` depending on your `nameOverride` / `fullnameOverride`. Check
+the actual name:
+
+```sh
+kubectl get svc -n ldapapi-ng
+```
+
+And set the upstream accordingly, e.g.:
+
+```
+http://ldapapi-ldapapi-ng.ldapapi-ng.svc.cluster.local:8080
+```
 
 ## Install
 
@@ -62,7 +91,7 @@ helm repo update
 # 2. Create the namespace and the Secret with your real values
 kubectl create namespace krakend
 kubectl create secret generic krakend-secrets -n krakend \
-  --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc:8080 \
+  --from-literal=LDAPAPI_UPSTREAM=http://ldapapi-ng.ldapapi-ng.svc.cluster.local:8080 \
   --from-literal=KEYCLOAK_JWKS_URL=https://keycloak.example.org/realms/myrealm/protocol/openid-connect/certs \
   --from-literal=KEYCLOAK_ISSUER=https://keycloak.example.org/realms/myrealm \
   --from-literal=KEYCLOAK_AUDIENCE=ldapapi-ng \
