@@ -44,7 +44,42 @@ helm install ldapapi ./helm \
   --set ingress.hosts[0].paths[0].pathType=Prefix
 ```
 
-Verify rendering without deploying:
+#### LDAPS CA certificate
+
+If your LDAP server uses a certificate signed by an internal CA (not a public
+root), you need to provide the CA certificate so the API can verify the TLS
+connection. The chart supports two approaches:
+
+**Inline the PEM content** in your values file:
+
+```yaml
+ldap:
+  caCert:
+    enabled: true
+    content: |
+      -----BEGIN CERTIFICATE-----
+      MIIFaz...
+      -----END CERTIFICATE-----
+```
+
+**Reference an existing ConfigMap** already in the cluster:
+
+```yaml
+ldap:
+  caCert:
+    enabled: true
+    existingConfigMap: my-ca-configmap   # key must match fileName (default: ca.crt)
+```
+
+The chart mounts the certificate read-only at
+`/etc/ldapapi-ng/ca/ca.crt` and sets `LDAP_CA_CERT_PATH` automatically. The
+mount path and file name can be overridden with `ldap.caCert.mountPath` and
+`ldap.caCert.fileName`.
+
+> `content` and `existingConfigMap` are mutually exclusive — the chart will
+> fail to render if both are set.
+
+#### Verify rendering without deploying
 
 ```sh
 helm lint ./helm --set ldap.host=x --set ldap.baseDN=y
