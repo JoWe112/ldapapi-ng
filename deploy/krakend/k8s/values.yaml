@@ -1,11 +1,11 @@
-# Values override for the upstream KrakenD Helm chart
-# (https://github.com/krakend/krakend-charts). Install with:
+# Values override for the upstream KrakenD Helm chart maintained by Equinix Metal
+# (https://github.com/equinixmetal-helm/krakend). Install with:
 #
-#   helm repo add krakend https://krakend.github.io/krakend-charts
+#   helm repo add equinixmetal https://helm.equinixmetal.com
 #   helm repo update
 #   kubectl apply -f configmap.yaml
 #   kubectl apply -f secret.yaml       # your populated copy of secret.example.yaml
-#   helm install krakend krakend/krakend \
+#   helm install krakend equinixmetal/krakend \
 #     --namespace krakend --create-namespace \
 #     -f values.yaml
 #

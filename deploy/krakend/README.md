@@ -18,7 +18,7 @@ client ──TLS──▶ Ingress / HTTPRoute ──▶ KrakenD ──cluster HT
 | `krakend.tmpl` | Flexible-Config template rendered into `krakend.json` at pod start. |
 | `k8s/configmap.yaml` | ConfigMap that mounts `krakend.tmpl` under `/etc/krakend/templates`. |
 | `k8s/secret.example.yaml` | Example Secret with every env var the template expects — copy, populate, and apply the copy (**never commit populated secrets**). |
-| `k8s/values.yaml` | Values override for the upstream [krakend Helm chart](https://github.com/krakend/krakend-charts). |
+| `k8s/values.yaml` | Values override for the upstream [KrakenD Helm chart](https://github.com/equinixmetal-helm/krakend) (maintained by Equinix Metal). |
 
 ## Endpoints
 
@@ -56,8 +56,8 @@ rollout restart away.
 ## Install
 
 ```sh
-# 1. Add the upstream chart repo
-helm repo add krakend https://krakend.github.io/krakend-charts
+# 1. Add the upstream chart repo (maintained by Equinix Metal)
+helm repo add equinixmetal https://helm.equinixmetal.com
 helm repo update
 
 # 2. Create the namespace
@@ -70,7 +70,7 @@ cp k8s/secret.example.yaml /tmp/krakend-secret.yaml
 kubectl apply -n krakend -f /tmp/krakend-secret.yaml
 
 # 4. Install the chart with our values override
-helm install krakend krakend/krakend \
+helm install krakend equinixmetal/krakend \
   --namespace krakend \
   -f k8s/values.yaml
 ```
