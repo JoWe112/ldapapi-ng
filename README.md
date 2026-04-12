@@ -174,8 +174,15 @@ go build -trimpath \
 
 ### Test
 
+Run the unit tests with race detection:
+
 ```sh
 go test ./... -race
+```
+
+Lint and format checks (also run in CI):
+
+```sh
 go vet ./...
 gofmt -l .
 ```
