@@ -17,6 +17,14 @@ func requestLogger(log *slog.Logger) gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
+		log.Debug("http request started",
+			"method", c.Request.Method,
+			"path", path,
+			"client_ip", c.ClientIP(),
+			"user_agent", c.Request.UserAgent(),
+			"content_length", c.Request.ContentLength,
+		)
+
 		c.Next()
 
 		log.Info("http request",
@@ -25,6 +33,7 @@ func requestLogger(log *slog.Logger) gin.HandlerFunc {
 			"status", c.Writer.Status(),
 			"duration_ms", time.Since(start).Milliseconds(),
 			"client_ip", c.ClientIP(),
+			"response_size", c.Writer.Size(),
 		)
 	}
 }

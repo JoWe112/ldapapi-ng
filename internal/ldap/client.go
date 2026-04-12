@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -35,12 +36,14 @@ type Options struct {
 	UserFilter string // e.g. "(uid=%s)"
 	CACertPath string
 	Timeout    time.Duration
+	Log        *slog.Logger
 }
 
 // client is the concrete implementation of Client.
 type client struct {
 	opts      Options
 	tlsConfig *tls.Config
+	log       *slog.Logger
 }
 
 // ErrUserNotFound is returned by LookupUser when the uid does not match.
@@ -82,13 +85,19 @@ func New(opts Options) (Client, error) {
 		tlsCfg.RootCAs = pool
 	}
 
-	return &client{opts: opts, tlsConfig: tlsCfg}, nil
+	log := opts.Log
+	if log == nil {
+		log = slog.Default()
+	}
+
+	return &client{opts: opts, tlsConfig: tlsCfg, log: log}, nil
 }
 
 // dial opens a new LDAPS connection. A fresh connection is used per request
 // to keep the client stateless and safe under concurrency.
 func (c *client) dial(ctx context.Context) (*goldap.Conn, error) {
 	addr := fmt.Sprintf("%s:%d", c.opts.Host, c.opts.Port)
+	c.log.Debug("ldap: dialing", "addr", addr, "timeout", c.opts.Timeout)
 
 	dialer := &tls.Dialer{Config: c.tlsConfig}
 	ctx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
@@ -101,6 +110,7 @@ func (c *client) dial(ctx context.Context) (*goldap.Conn, error) {
 	conn := goldap.NewConn(rawConn, true)
 	conn.Start()
 	conn.SetTimeout(c.opts.Timeout)
+	c.log.Debug("ldap: connected", "addr", addr)
 	return conn, nil
 }
 
@@ -120,6 +130,7 @@ func (c *client) Authenticate(ctx context.Context, username, password string) er
 
 	// Service bind (optional) to search for the user's DN.
 	if c.opts.BindDN != "" {
+		c.log.Debug("ldap: service bind", "bind_dn", c.opts.BindDN)
 		if err := conn.Bind(c.opts.BindDN, c.opts.BindPass); err != nil {
 			return fmt.Errorf("ldap: service bind failed: %w", err)
 		}
@@ -131,6 +142,7 @@ func (c *client) Authenticate(ctx context.Context, username, password string) er
 	}
 
 	// Re-bind as the user to verify the password.
+	c.log.Debug("ldap: user bind", "user_dn", userDN)
 	if err := conn.Bind(userDN, password); err != nil {
 		if goldap.IsErrorWithCode(err, goldap.LDAPResultInvalidCredentials) {
 			return ErrInvalidCredentials
@@ -149,6 +161,7 @@ func (c *client) LookupUser(ctx context.Context, uid string) (map[string][]strin
 	defer func() { _ = conn.Close() }()
 
 	if c.opts.BindDN != "" {
+		c.log.Debug("ldap: service bind for lookup", "bind_dn", c.opts.BindDN)
 		if err := conn.Bind(c.opts.BindDN, c.opts.BindPass); err != nil {
 			return nil, fmt.Errorf("ldap: service bind failed: %w", err)
 		}
@@ -179,6 +192,7 @@ func (c *client) findUserDN(conn *goldap.Conn, username string) (string, error) 
 // searchUser performs the LDAP search with the configured filter.
 func (c *client) searchUser(conn *goldap.Conn, username string) (*goldap.Entry, error) {
 	filter := fmt.Sprintf(c.opts.UserFilter, goldap.EscapeFilter(username))
+	c.log.Debug("ldap: searching", "base_dn", c.opts.BaseDN, "filter", filter)
 	req := goldap.NewSearchRequest(
 		c.opts.BaseDN,
 		goldap.ScopeWholeSubtree,
@@ -198,7 +212,9 @@ func (c *client) searchUser(conn *goldap.Conn, username string) (*goldap.Entry, 
 		return nil, fmt.Errorf("ldap: search failed: %w", err)
 	}
 	if len(result.Entries) == 0 {
+		c.log.Debug("ldap: search returned no entries", "filter", filter)
 		return nil, ErrUserNotFound
 	}
+	c.log.Debug("ldap: search found user", "dn", result.Entries[0].DN)
 	return result.Entries[0], nil
 }

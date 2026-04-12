@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and API-key (`auth/api-keys`) route groups, ConfigMap, example Secret, and
   upstream Helm chart values override. Label defaults stay aligned with the
   ldapapi-ng `NetworkPolicy` so gateway mode works out of the box.
+- Configurable `LOG_LEVEL` environment variable (`DEBUG`, `INFO`, `WARN`,
+  `ERROR`; default `INFO`). Debug level surfaces LDAP dial/bind/search
+  details and per-request headers/user-agent, useful for troubleshooting
+  without modifying code.
 - Dependabot configuration (`.github/dependabot.yml`) for `gomod`, `docker`,
   and `github-actions` ecosystems.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`) enforcing
