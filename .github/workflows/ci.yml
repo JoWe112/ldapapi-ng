@@ -129,7 +129,7 @@ jobs:
     if: needs.changes.outputs.helm == 'true' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.16.3
 
