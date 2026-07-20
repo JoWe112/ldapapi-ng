@@ -137,6 +137,49 @@ func TestAuth_InvalidCredentials(t *testing.T) {
 	}
 }
 
+// TestAuth_UserNotFoundLooksLikeInvalidCredentials guards against a user
+// enumeration oracle: a non-existent user must yield the same 401
+// INVALID_CREDENTIALS response as a wrong password, never a 503.
+func TestAuth_UserNotFoundLooksLikeInvalidCredentials(t *testing.T) {
+	h := newTestRouter(t, &fakeLDAP{authErr: ldapclient.ErrUserNotFound}, config.AuthModeGateway)
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth", nil)
+	req.Header.Set("Authorization", basicHeader("ghost", "whatever"))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	var body ErrorBody
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Error.Code != "INVALID_CREDENTIALS" {
+		t.Errorf("expected INVALID_CREDENTIALS (no enumeration oracle), got %q", body.Error.Code)
+	}
+}
+
+// TestStandaloneMode_UserNotFoundLooksLikeInvalidCredentials guards the same
+// oracle in the standalone BasicAuth middleware.
+func TestStandaloneMode_UserNotFoundLooksLikeInvalidCredentials(t *testing.T) {
+	h := newTestRouter(t, &fakeLDAP{authErr: ldapclient.ErrUserNotFound}, config.AuthModeStandalone)
+	req := httptest.NewRequest(http.MethodGet, "/v1/user/ghost", nil)
+	req.Header.Set("Authorization", basicHeader("ghost", "whatever"))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	var body ErrorBody
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Error.Code != "INVALID_CREDENTIALS" {
+		t.Errorf("expected INVALID_CREDENTIALS (no enumeration oracle), got %q", body.Error.Code)
+	}
+}
+
 func TestUser_Success(t *testing.T) {
 	fake := &fakeLDAP{
 		lookupAttr: map[string][]string{
