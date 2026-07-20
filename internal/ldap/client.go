@@ -138,6 +138,12 @@ func (c *client) Authenticate(ctx context.Context, username, password string) er
 
 	userDN, err := c.findUserDN(conn, username)
 	if err != nil {
+		// Do not leak whether the account exists: a missing user in the auth
+		// path is indistinguishable from a wrong password. This prevents a
+		// status-code enumeration oracle (401 for both, never 503).
+		if errors.Is(err, ErrUserNotFound) {
+			return ErrInvalidCredentials
+		}
 		return err
 	}
 

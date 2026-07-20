@@ -26,7 +26,9 @@ func BasicAuth(ldap ldapclient.Client) gin.HandlerFunc {
 		}
 
 		if err := ldap.Authenticate(c.Request.Context(), user, pass); err != nil {
-			if errors.Is(err, ldapclient.ErrInvalidCredentials) {
+			// Treat a missing user identically to a wrong password so the
+			// response does not reveal whether the account exists.
+			if errors.Is(err, ldapclient.ErrInvalidCredentials) || errors.Is(err, ldapclient.ErrUserNotFound) {
 				writeError(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "The provided credentials are invalid.")
 				return
 			}

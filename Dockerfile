@@ -6,7 +6,7 @@
 # --platform=$BUILDPLATFORM makes the builder stage run natively on the host
 # (e.g. arm64 on Apple Silicon) and Go itself cross-compiles to TARGETOS/
 # TARGETARCH. This avoids QEMU user-mode emulation, which is ~10-30x slower.
-FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine3.22@sha256:727cfc3c40be55cd1bc9a4a059406b28a059857e3be752aa9d09531e12c20c56 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS builder
 
 # BuildKit automatically populates these. Default values keep manual
 # `docker build` invocations working without buildx.

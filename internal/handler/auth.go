@@ -38,7 +38,10 @@ func Auth(ldap ldapclient.Client, log *slog.Logger) gin.HandlerFunc {
 		}
 
 		if err := ldap.Authenticate(c.Request.Context(), user, pass); err != nil {
-			if errors.Is(err, ldapclient.ErrInvalidCredentials) {
+			// A missing user and a wrong password must be indistinguishable to
+			// the caller, otherwise the 401-vs-503 split becomes an account
+			// enumeration oracle.
+			if errors.Is(err, ldapclient.ErrInvalidCredentials) || errors.Is(err, ldapclient.ErrUserNotFound) {
 				log.Info("authentication failed", "user", user)
 				writeError(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "The provided credentials are invalid.")
 				return
